@@ -57,7 +57,7 @@ const GlowingStar: React.FC<GlowingStarProps> = ({
       ],
     }}
     transition={{ duration: 3, repeat: Infinity, delay }}
-    className={`absolute h-1.5 w-1.5 rounded-full`}
+    className={`absolute h-1.5 w-1.5 rounded-full ${className}`}
     style={{ backgroundColor: 'var(--color-theme-primary)' }}
   />
 );

@@ -25,8 +25,9 @@ export default function ConnectPage() {
       setAddress(publicKey);
       setError(null);
       router.push('/loading');
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to connect wallet';
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to connect wallet';
       setError(errorMessage);
       setLocalError(errorMessage);
       setStatus('error');
@@ -55,7 +56,7 @@ export default function ConnectPage() {
       setWalletAddress(text);
       setLocalError(null);
       setError(null);
-    } catch (err) {
+    } catch {
       setError('Failed to paste from clipboard');
     }
   };
@@ -332,7 +333,7 @@ export default function ConnectPage() {
 
             <div className="mt-6 pt-6 border-t border-white/10">
               <p className="text-xs sm:text-sm text-white/50 text-center mb-3">
-                Don't have a Stellar wallet?{' '}
+                Don&apos;t have a Stellar wallet?{' '}
                 <a 
                   href="https://stellar.org/wallets" 
                   target="_blank" 

@@ -1,22 +1,16 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, useSpring, useTransform, AnimatePresence } from 'framer-motion';
 import { useWrapStore } from '../store/wrapStore';
 import { StoryShell } from './StoryShell';
 import { Home, Share2, ChevronRight, Palette } from 'lucide-react';
-
-interface MonthlyStats {
-  month: string;
-  count: number;
-}
 
 const TransactionsOfFury: React.FC = () => {
   const { result } = useWrapStore();
   const totalTransactions = result?.totalTransactions ?? 0;
   const percentile = result?.percentile ?? 0;
   // keep existing mock monthly stats logic for now; could be moved into wrapStore later
-  const [isVisible, setIsVisible] = useState(false);
   const [showPercentile, setShowPercentile] = useState(false);
 
   // Spring-based count-up animation
@@ -29,7 +23,6 @@ const TransactionsOfFury: React.FC = () => {
   const displayCount = useTransform(count, (latest) => Math.floor(latest));
 
   useEffect(() => {
-    setIsVisible(true);
     // Start count-up animation
     const timer = setTimeout(() => {
       count.set(totalTransactions || 420);
@@ -45,6 +38,33 @@ const TransactionsOfFury: React.FC = () => {
       clearTimeout(percentileTimer);
     };
   }, [totalTransactions, count]);
+
+  const baseLineDurations = useMemo(
+    () => Array.from({ length: 80 }, (_, i) => 2 + (i % 3) * 0.5),
+    []
+  );
+
+  const speedLineRandoms = useMemo(
+    () =>
+      Array.from({ length: 15 }, (_, i) => ({
+        top: (i * 100) / 15,
+        width: 100 + (i % 5) * 40,
+        duration: 3 + (i % 4),
+        delay: (i % 4),
+      })),
+    []
+  );
+
+  const particleRandoms = useMemo(
+    () =>
+      Array.from({ length: 20 }, (_, i) => ({
+        left: (i * 100) / 20,
+        top: ((i * 47) % 100),
+        duration: 2 + (i % 3),
+        delay: (i % 5) * 0.5,
+      })),
+    []
+  );
 
   return (
     <StoryShell>
@@ -63,9 +83,9 @@ const TransactionsOfFury: React.FC = () => {
                 x: [-20, 0, -20],
               }}
               transition={{
-                duration: 2 + (Math.random() * 1.5),
+                duration: baseLineDurations[i],
                 repeat: Infinity,
-                delay: Math.random() * 2,
+                delay: (i % 8) * 0.25,
                 ease: "easeInOut",
               }}
             />
@@ -74,13 +94,13 @@ const TransactionsOfFury: React.FC = () => {
 
         {/* Additional moving speed lines for extra motion */}
         <div className="absolute inset-0">
-          {[...Array(15)].map((_, i) => (
+          {speedLineRandoms.map((cfg, i) => (
             <motion.div
               key={`speed-${i}`}
               className="absolute h-[2px]"
               style={{
-                top: `${Math.random() * 100}%`,
-                width: `${100 + Math.random() * 200}px`,
+                top: `${cfg.top}%`,
+                width: `${cfg.width}px`,
                 backgroundColor: 'rgba(16, 185, 129, 0.3)',
                 left: '-200px',
               }}
@@ -89,9 +109,9 @@ const TransactionsOfFury: React.FC = () => {
                 opacity: [0, 0.6, 0],
               }}
               transition={{
-                duration: 3 + Math.random() * 2,
+                duration: cfg.duration,
                 repeat: Infinity,
-                delay: Math.random() * 3,
+                delay: cfg.delay,
                 ease: "linear",
               }}
             />
@@ -207,7 +227,7 @@ const TransactionsOfFury: React.FC = () => {
                       </p>
                       {/* Percentile number with alternating colors */}
                       <div className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black flex items-center justify-center">
-                        {String(percentile || 80).split('').map((digit, index, arr) => {
+                        {String(percentile || 80).split('').map((digit, index) => {
                           const isEven = index % 2 === 0;
                           return (
                             <span 
@@ -247,22 +267,22 @@ const TransactionsOfFury: React.FC = () => {
 
         {/* Subtle Particle effects */}
         <div className="absolute inset-0 pointer-events-none opacity-40">
-          {[...Array(20)].map((_, i) => (
+          {particleRandoms.map((cfg, i) => (
             <motion.div
               key={i}
               className="absolute w-1 h-1 bg-emerald-400/60 rounded-full"
               style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
+                left: `${cfg.left}%`,
+                top: `${cfg.top}%`,
               }}
               animate={{
                 opacity: [0, 0.6, 0],
                 scale: [0, 1.2, 0],
               }}
               transition={{
-                duration: 2 + Math.random() * 2,
+                duration: cfg.duration,
                 repeat: Infinity,
-                delay: Math.random() * 2,
+                delay: cfg.delay,
               }}
             />
           ))}

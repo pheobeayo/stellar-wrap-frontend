@@ -15,9 +15,12 @@ export function ShareButtons({ title, text, hashtags = [] }: ShareButtonsProps) 
   const [shareUrl, setShareUrl] = useState('');
   
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return;
+    // Defer state update to avoid synchronous setState in effect body
+    const id = window.requestAnimationFrame(() => {
       setShareUrl(window.location.href);
-    }
+    });
+    return () => window.cancelAnimationFrame(id);
   }, []);
 
   const hashtagString = hashtags.join(',');
@@ -44,8 +47,8 @@ export function ShareButtons({ title, text, hashtags = [] }: ShareButtonsProps) 
           text,
           url: shareUrl,
         });
-      } catch (err) {
-        console.log('Share cancelled');
+      } catch {
+        // Silently ignore share cancellation or errors from native share
       }
     }
   };

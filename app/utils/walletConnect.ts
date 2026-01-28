@@ -7,7 +7,7 @@ export const isFreighterInstalled = async (): Promise<boolean> => {
   try {
     const result = await isConnected();
     return !result.error && result.isConnected;
-  } catch (error) {
+  } catch {
     return false;
   }
 };
@@ -36,16 +36,15 @@ export const connectFreighter = async (): Promise<string> => {
 
     // Return the address from requestAccess (it already provides the address)
     return accessResult.address;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle specific error cases
-    if (error.message?.includes('User declined')) {
-      throw new Error('Connection rejected by user.');
-    }
-    
-    if (error.message) {
+    if (error instanceof Error) {
+      if (error.message?.includes('User declined')) {
+        throw new Error('Connection rejected by user.');
+      }
       throw error;
     }
-    
+
     throw new Error('Failed to connect to Freighter wallet. Please try again.');
   }
 };
@@ -63,7 +62,7 @@ export const getCurrentPublicKey = async (): Promise<string | null> => {
     
     const addressResult = await getAddress();
     return addressResult.error ? null : addressResult.address;
-  } catch (error) {
+  } catch {
     return null;
   }
 };

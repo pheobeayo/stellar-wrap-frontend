@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { TrendingUp, Palette, Code } from 'lucide-react';
 
 interface VibeData {
@@ -15,30 +15,35 @@ interface Screen4VibeCheckProps {
   vibes: VibeData[];
 }
 
+type VibeIconKey = 'defi' | 'nft' | 'dev';
+
 // Icon mapping for different vibe types
-const vibeIcons: Record<string, any> = {
+const vibeIcons: Record<VibeIconKey, React.ComponentType<{ className?: string }>> = {
   defi: TrendingUp,
   nft: Palette,
   dev: Code,
 };
 
 export function Screen4VibeCheck({ vibes }: Screen4VibeCheckProps) {
-  const [blobShapes, setBlobShapes] = useState<any[]>([]);
+  const blobShapes = useMemo(
+    () =>
+      vibes.map((vibe, index) => {
+        const baseSize = (vibe.percentage / 100) * 250 + 100;
+        return {
+          ...vibe,
+          size: baseSize,
+          x: (index - 1) * 200,
+          y: 0,
+          rotate: 30 * index,
+        };
+      }),
+    [vibes]
+  );
 
-  useEffect(() => {
-    // Generate organic blob shapes based on percentages
-    const shapes = vibes.map((vibe, index) => {
-      const baseSize = (vibe.percentage / 100) * 250 + 100;
-      return {
-        ...vibe,
-        size: baseSize,
-        x: (index - 1) * 200,
-        y: 0,
-        rotate: Math.random() * 360,
-      };
-    });
-    setBlobShapes(shapes);
-  }, [vibes]);
+  const blobAnimationDurations = useMemo(
+    () => blobShapes.map((_, index) => 4 + (index % 3)),
+    [blobShapes]
+  );
 
   return (
     <div className="relative w-full h-full overflow-hidden flex bg-theme-background">
@@ -201,7 +206,7 @@ export function Screen4VibeCheck({ vibes }: Screen4VibeCheckProps) {
                         rotate: [blob.rotate, blob.rotate + 15, blob.rotate],
                       }}
                       transition={{
-                        duration: 4 + Math.random() * 2,
+                        duration: blobAnimationDurations[index] ?? 5,
                         repeat: Infinity,
                         ease: "easeInOut",
                         delay: index * 0.5,

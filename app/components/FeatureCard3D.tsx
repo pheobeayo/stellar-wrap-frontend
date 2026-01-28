@@ -4,13 +4,12 @@ import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useRef } from "react";
 
 interface FeatureCard3DProps {
-  label: string;
   value: string;
   gradient: string;
   index: number;
 }
 
-export default function FeatureCard3D({ label, value, gradient, index }: FeatureCard3DProps) {
+export default function FeatureCard3D({ value, gradient, index }: FeatureCard3DProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   
   const x = useMotionValue(0);

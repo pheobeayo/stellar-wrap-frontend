@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from 'framer-motion';
-import { Layers, Network, Database, Link2, Box, Cpu } from 'lucide-react';
+import { Box, Database } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ColorToggle } from './ColorToggle';
