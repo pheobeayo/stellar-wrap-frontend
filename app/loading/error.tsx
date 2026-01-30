@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { ErrorCard } from "@/components/ErrorCard";
 
 export default function LoadingError({
@@ -10,9 +9,5 @@ export default function LoadingError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error("Loading page error:", error);
-  }, [error]);
-
   return <ErrorCard error={error} reset={reset} title="Loading Failed" />;
 }
