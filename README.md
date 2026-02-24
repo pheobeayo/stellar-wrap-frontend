@@ -71,6 +71,37 @@ This project is designed to support the growth of the Stellar network by:
 
 ---
 
+## ⚙️ Configuration
+
+### Environment variables
+
+Copy `.env.example` to `.env.local` and set:
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET` | Soroban contract address on mainnet (56-char, `C...`). |
+| `NEXT_PUBLIC_CONTRACT_ADDRESS_TESTNET` | Soroban contract address on testnet (56-char, `C...`). |
+| `NEXT_PUBLIC_CONTRACT_ADDRESS` | (Optional) Legacy: used for both networks if the two above are not set. |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect project ID (optional). |
+
+Contract addresses are loaded per network; the app uses the selected network (mainnet/testnet) to choose the contract. When you switch networks in the UI, the contract instance is re-loaded for the new network.
+
+### Running tests
+
+```bash
+npm install
+npm test
+```
+
+If you see `Cannot find module 'ansi-styles'` when running `npm test`, run a clean install:
+
+```bash
+rm -rf node_modules && npm install
+npm test
+```
+
+---
+
 ## 🗺️ Roadmap
 
 Our immediate focus is on delivering a polished MVP for the community:

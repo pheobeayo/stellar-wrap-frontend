@@ -1,17 +1,30 @@
 "use client"
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Network as NetworkIcon } from 'lucide-react';
+import { Network as NetworkIcon, Loader2 } from 'lucide-react';
 import { useWrapStore } from '../store/wrapStore';
 import { NETWORKS, Network } from '../../src/config';
 import { getNetworkDisplayName } from '../../src/utils/networkUtils';
+import { clearContractCache } from '../utils/contractBridge';
 
 export function NetworkToggle() {
   const { network, setNetwork } = useWrapStore();
+  const [isSwitching, setIsSwitching] = useState(false);
+
+  useEffect(() => {
+    const state = useWrapStore.getState();
+    if (state.currentContractAddress == null) state.setNetwork(state.network);
+  }, []);
 
   const toggleNetwork = () => {
     const newNetwork: Network = network === NETWORKS.MAINNET ? NETWORKS.TESTNET : NETWORKS.MAINNET;
+    setIsSwitching(true);
+    clearContractCache();
     setNetwork(newNetwork);
+    requestAnimationFrame(() => {
+      setTimeout(() => setIsSwitching(false), 300);
+    });
   };
 
   const isMainnet = network === NETWORKS.MAINNET;
@@ -24,8 +37,10 @@ export function NetworkToggle() {
       className="fixed top-4 right-4 md:top-8 md:right-24 z-50"
     >
       <motion.button
+        type="button"
         onClick={toggleNetwork}
-        className="group relative flex items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl backdrop-blur-xl border transition-all"
+        disabled={isSwitching}
+        className="group relative flex items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl backdrop-blur-xl border transition-all disabled:opacity-70 disabled:cursor-not-allowed"
         style={{
           backgroundColor: 'rgba(0, 0, 0, 0.5)',
           borderColor: isMainnet 
@@ -45,16 +60,25 @@ export function NetworkToggle() {
           }}
         />
 
-        {/* Network icon */}
-        <div className="relative">
-          <NetworkIcon 
-            className="w-4 h-4 md:w-5 md:h-5" 
-            style={{ 
-              color: isMainnet 
-                ? 'var(--color-theme-primary)' 
-                : '#FFA500' 
-            }} 
-          />
+        {/* Network icon or loading spinner */}
+        <div className="relative flex items-center justify-center min-w-[1.25rem] min-h-[1.25rem] md:min-w-5 md:min-h-5">
+          {isSwitching ? (
+            <Loader2
+              className="w-4 h-4 md:w-5 md:h-5 animate-spin"
+              style={{
+                color: isMainnet ? 'var(--color-theme-primary)' : '#FFA500',
+              }}
+            />
+          ) : (
+            <NetworkIcon
+              className="w-4 h-4 md:w-5 md:h-5"
+              style={{
+                color: isMainnet
+                  ? 'var(--color-theme-primary)'
+                  : '#FFA500',
+              }}
+            />
+          )}
         </div>
 
         {/* Network label */}
@@ -62,15 +86,15 @@ export function NetworkToggle() {
           <span className="text-[8px] md:text-[10px] font-black tracking-wider text-white/50 uppercase">
             Network
           </span>
-          <span 
+          <span
             className="text-xs md:text-sm font-black tracking-tight"
-            style={{ 
-              color: isMainnet 
-                ? 'var(--color-theme-primary)' 
-                : '#FFA500' 
+            style={{
+              color: isMainnet
+                ? 'var(--color-theme-primary)'
+                : '#FFA500',
             }}
           >
-            {getNetworkDisplayName(network)}
+            {isSwitching ? 'Switching…' : getNetworkDisplayName(network)}
           </span>
         </div>
 

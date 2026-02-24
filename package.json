@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "vitest",
+    "vitest": "vitest",
     "test:ui": "vitest --ui",
+    "test": "npx jest",
     "prepare": "husky install"
   },
   "dependencies": {
@@ -33,6 +34,10 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
+    "ansi-styles": "^6.2.1",
+    "@types/jest": "^29",
+    "jest": "^29",
+    "ts-jest": "^29",
     "@tailwindcss/postcss": "^4",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",

@@ -1,15 +1,23 @@
 import { StellarWalletsKit } from "@creit-tech/stellar-wallets-kit/sdk";
 import { defaultModules } from "@creit-tech/stellar-wallets-kit/modules/utils";
 import { WalletConnectModule } from "@creit-tech/stellar-wallets-kit/modules/wallet-connect";
+import { Network } from "../../src/config";
+import { getContractAddressForNetwork } from "./contractBridge";
+import {
+  ContractConfigurationError,
+  InvalidContractAddressError,
+  ContractNotFoundError,
+  ContractValidationError,
+} from "./contractErrors";
 
-// Contract address from environment variable with fallback placeholder
-const CONTRACT_ADDRESS =
-  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
-  "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-
-if (!process.env.NEXT_PUBLIC_CONTRACT_ADDRESS) {
+if (
+  typeof process !== "undefined" &&
+  !process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET &&
+  !process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_TESTNET &&
+  !process.env.NEXT_PUBLIC_CONTRACT_ADDRESS
+) {
   console.warn(
-    "⚠️ NEXT_PUBLIC_CONTRACT_ADDRESS not set. Using placeholder contract address.",
+    "⚠️ No contract address env set (NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET, NEXT_PUBLIC_CONTRACT_ADDRESS_TESTNET, or NEXT_PUBLIC_CONTRACT_ADDRESS). Using placeholder per network.",
   );
 }
 
@@ -40,25 +48,31 @@ export function initWalletKit(): void {
 
 /**
  * Mint the user's Stellar Wrapped as a Soulbound Token NFT
+ * Uses the contract address for the given network (mainnet vs testnet).
+ *
  * @param userAddress - The connected Stellar wallet address
+ * @param network - 'mainnet' | 'testnet' (determines which contract is used)
  * @returns Transaction hash on success
- * @throws Error if minting fails or user rejects transaction
+ * @throws Error if minting fails, user rejects transaction, or contract is invalid for the network
  */
-export async function mintWrap(userAddress: string): Promise<string> {
+export async function mintWrap(
+  userAddress: string,
+  network: Network
+): Promise<string> {
   try {
-    // Ensure wallet kit is initialized
     initWalletKit();
 
-    // Build the transaction to invoke the mint_wrap function
-    // Note: This is a placeholder implementation. The actual Soroban contract
-    // invocation will need to be implemented based on the contract's specific
-    // interface and parameters when the contract engineer provides details.
-
-    // For now, we'll simulate the contract call structure
-    const txHash = await invokeMintWrapContract(userAddress);
-
+    const txHash = await invokeMintWrapContract(userAddress, network);
     return txHash;
   } catch (error) {
+    if (
+      error instanceof ContractConfigurationError ||
+      error instanceof InvalidContractAddressError ||
+      error instanceof ContractNotFoundError ||
+      error instanceof ContractValidationError
+    ) {
+      throw error;
+    }
     if (error instanceof Error) {
       throw new Error(`Minting failed: ${error.message}`);
     }
@@ -67,15 +81,20 @@ export async function mintWrap(userAddress: string): Promise<string> {
 }
 
 /**
- * Internal function to invoke the mint_wrap contract function
- * This is a placeholder that will be replaced with actual Soroban contract invocation
+ * Internal function to invoke the mint_wrap contract function.
+ * Validates contract exists on network, then loads instance (cached when available).
  */
-async function invokeMintWrapContract(userAddress: string): Promise<string> {
-  // TODO: Replace this placeholder with actual Soroban contract invocation
-  // when the contract engineer provides the contract details
+async function invokeMintWrapContract(
+  userAddress: string,
+  network: Network
+): Promise<string> {
+  const { getContractInstanceValidated } = await import("./contractBridge");
+  await getContractInstanceValidated(network);
+  const contractAddress = getContractAddressForNetwork(network);
 
-  // The actual implementation will look something like:
-  // const contract = new Contract(CONTRACT_ADDRESS);
+  // TODO: Replace with actual Soroban invocation, e.g. contract.call('mint_wrap', ...)
+  // when the contract engineer provides the contract details.
+  // Example:
   // const operation = contract.call('mint_wrap', userAddress);
   // const transaction = new TransactionBuilder(...)
   //   .addOperation(operation)
@@ -86,6 +105,6 @@ async function invokeMintWrapContract(userAddress: string): Promise<string> {
 
   throw new Error(
     "Contract integration pending. The mint_wrap function will be implemented by the contract engineer. " +
-      `Contract address: ${CONTRACT_ADDRESS}, User: ${userAddress}`,
+      `Contract address (${network}): ${contractAddress}, User: ${userAddress}`,
   );
 }

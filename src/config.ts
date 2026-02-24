@@ -11,11 +11,24 @@ export const NETWORKS = {
 export type Network = typeof NETWORKS[keyof typeof NETWORKS];
 
 /**
- * RPC endpoint configuration for each network
+ * RPC endpoint configuration for each network (Horizon REST API)
  */
 export const RPC_ENDPOINTS: Record<Network, string> = {
   mainnet: 'https://horizon.stellar.org',
   testnet: 'https://horizon-testnet.stellar.org',
+};
+
+/**
+ * Soroban RPC URLs for contract validation and invocation (JSON-RPC).
+ * Override with NEXT_PUBLIC_SOROBAN_RPC_MAINNET / NEXT_PUBLIC_SOROBAN_RPC_TESTNET.
+ */
+export const SOROBAN_RPC_URLS: Record<Network, string> = {
+  mainnet:
+    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SOROBAN_RPC_MAINNET) ||
+    'https://mainnet.stellar.validation.stellar.org',
+  testnet:
+    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SOROBAN_RPC_TESTNET) ||
+    'https://soroban-testnet.stellar.org',
 };
 
 /**

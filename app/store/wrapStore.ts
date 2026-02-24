@@ -1,5 +1,10 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import { Network, DEFAULT_NETWORK } from "../../src/config";
+import {
+  getContractAddress,
+  getContractConfigForAllNetworks,
+} from "../../config/contracts";
 import { CacheStore } from "@/app/utils/indexer";
 
 export type WrapPeriod = "weekly" | "monthly" | "yearly";
@@ -33,6 +38,8 @@ export interface WrapResult {
 
 type WrapStatus = "idle" | "loading" | "ready" | "error";
 
+/** Contract addresses per network (from config/env), synced on load and network change */
+export type ContractAddressesByNetwork = Partial<Record<Network, string>>;
 // In-memory cache for API results
 let cacheStore: CacheStore = {};
 
@@ -51,6 +58,10 @@ interface WrapStoreState {
   status: WrapStatus;
   error: string | null;
   result: WrapResult | null;
+  /** Contract address for the current network; updated when network changes */
+  currentContractAddress: string | null;
+  /** Contract addresses per network (mainnet, testnet); synced from config */
+  contractAddresses: ContractAddressesByNetwork;
   // setters
   setAddress: (address: string | null) => void;
   setPeriod: (period: WrapPeriod) => void;
@@ -58,29 +69,77 @@ interface WrapStoreState {
   setStatus: (status: WrapStatus) => void;
   setError: (error: string | null) => void;
   setResult: (result: WrapResult | null) => void;
+  setContractAddresses: (addresses: ContractAddressesByNetwork) => void;
   reset: () => void;
 }
 
-export const useWrapStore = create<WrapStoreState>((set) => ({
-  address: null,
-  period: "yearly",
-  network: DEFAULT_NETWORK,
-  status: "idle",
-  error: null,
-  result: null,
-  setAddress: (address) => set({ address }),
-  setPeriod: (period) => set({ period }),
-  setNetwork: (network) => set({ network }),
-  setStatus: (status) => set({ status }),
-  setError: (error) => set({ error }),
-  setResult: (result) => set({ result }),
-  reset: () =>
-    set({
+function syncContractState(network: Network): {
+  currentContractAddress: string | null;
+  contractAddresses: ContractAddressesByNetwork;
+} {
+  try {
+    const config = getContractConfigForAllNetworks();
+    const currentContractAddress = getContractAddress(network);
+    return {
+      currentContractAddress,
+      contractAddresses: {
+        mainnet: config.mainnet?.contractAddress,
+        testnet: config.testnet?.contractAddress,
+      },
+    };
+  } catch {
+    return {
+      currentContractAddress: null,
+      contractAddresses: {},
+    };
+  }
+}
+
+export const useWrapStore = create<WrapStoreState>()(
+  persist(
+    (set) => ({
       address: null,
       period: "yearly",
       network: DEFAULT_NETWORK,
       status: "idle",
       error: null,
       result: null,
+      currentContractAddress: null,
+      contractAddresses: {},
+      setAddress: (address) => set({ address }),
+      setPeriod: (period) => set({ period }),
+      setNetwork: (network) =>
+        set({ network, ...syncContractState(network) }),
+      setStatus: (status) => set({ status }),
+      setError: (error) => set({ error }),
+      setResult: (result) => set({ result }),
+      setContractAddresses: (contractAddresses) => set({ contractAddresses }),
+      reset: () =>
+        set({
+          address: null,
+          period: "yearly",
+          network: DEFAULT_NETWORK,
+          status: "idle",
+          error: null,
+          result: null,
+          currentContractAddress: null,
+          contractAddresses: {},
+        }),
     }),
+    {
+      name: "stellar-wrap-store",
+      partialize: (state) => ({ network: state.network }),
+      storage: createJSONStorage(() =>
+        typeof window !== "undefined"
+          ? localStorage
+          : {
+              getItem: () => null,
+              setItem: () => {},
+              removeItem: () => {},
+            }
+      ),
+    }
+  )
+);
+
 }));

@@ -28,7 +28,7 @@ export function ShareCard({
   const [isDownloading, setIsDownloading] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
   const [mintSuccess, setMintSuccess] = useState<string | null>(null);
-  const { address } = useWrapStore();
+  const { address, network } = useWrapStore();
   const { playSound } = useSound();
 
   const handleDownload = async () => {
@@ -68,16 +68,17 @@ export function ShareCard({
     setMintSuccess(null);
 
     try {
-      const txHash = await mintWrap(address);
+      const txHash = await mintWrap(address, network);
       setMintSuccess(txHash);
       playSound(SOUND_NAMES.MINT_SUCCESS);
+      const explorerNetwork = network === "mainnet" ? "public" : "testnet";
       toast.success("Minted successfully!", {
         description: "View your transaction on Stellar Explorer",
         action: {
           label: "View",
           onClick: () =>
             window.open(
-              `https://stellar.expert/explorer/testnet/tx/${txHash}`,
+              `https://stellar.expert/explorer/${explorerNetwork}/tx/${txHash}`,
               "_blank",
             ),
         },
