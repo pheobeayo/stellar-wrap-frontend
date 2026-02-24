@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
     "prepare": "husky install"
   },
   "dependencies": {
@@ -25,8 +27,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-router-dom": "^7.12.0",
-    "stellar-sdk": "^13.3.0",
     "sonner": "^2.0.7",
+    "stellar-sdk": "^13.3.0",
     "tailwind-merge": "^3.4.0",
     "zustand": "^5.0.10"
   },
@@ -36,11 +38,13 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/ui": "^4.0.18",
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
     "husky": "^9.0.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   },
   "packageManager": "yarn@4.9.1+sha512.f95ce356460e05be48d66401c1ae64ef84d163dd689964962c6888a9810865e39097a5e9de748876c2e0bf89b232d583c33982773e9903ae7a76257270986538"
 }
