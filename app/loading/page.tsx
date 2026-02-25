@@ -41,30 +41,58 @@ export default function LoadingScreen() {
   useEffect(() => {
     let isMounted = true;
 
-    // Initialize event emitter connection to store on first load
+    // CRITICAL: Connect emitter to store BEFORE starting indexing to catch all events
+    console.log("Connecting event emitter to store");
     IndexerEventEmitter.getInstance().connectToStore();
+
+    // Always set isLoading to true at the start to guarantee progress display
+    console.log("Starting indexing");
+    startIndexing();
+
+    // Helper to emit progress through all indexing steps (for fallback/demo mode)
+    const emitProgressThroughSteps = async () => {
+      const emitter = IndexerEventEmitter.getInstance();
+      const steps = [
+        "initializing",
+        "fetching-transactions",
+        "filtering-timeframes",
+        "calculating-volume",
+        "identifying-assets",
+        "counting-contracts",
+        "finalizing",
+      ] as const;
+
+      for (const step of steps) {
+        emitter.emitStepChange(step);
+        // Animate progress for this step
+        for (let i = 0; i <= 100; i += 20) {
+          emitter.emitStepProgress(step, i);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        emitter.emitStepComplete(step);
+      }
+    };
 
     const loadWrap = async () => {
       try {
         setStatus("loading");
         setError(null);
 
-        // Attempt to resume from persisted state; only start fresh if no state is restored
-        const wasRestored = loadState();
-        if (!wasRestored) {
-          startIndexing();
-        }
+        // NOTE: Do NOT call loadState() here - it will overwrite isLoading: true
+        // The startIndexing() call above already set isLoading, which is what matters
 
         // Call real indexer service - will emit step progress events
         let result;
 
         if (address) {
           try {
+            console.log("Starting real indexer with address:", address);
             const indexerResult = await indexAccount(
               address,
               network as "mainnet" | "testnet",
               period as "weekly" | "monthly" | "yearly",
             );
+            console.log("Indexer completed, result:", indexerResult);
 
             // Map indexer result to wrap result format
             result = {
@@ -85,6 +113,7 @@ export default function LoadingScreen() {
           } catch (indexerError) {
             // Fallback to mock data if real indexer fails
             console.warn("Real indexer failed, using mock data:", indexerError);
+            await emitProgressThroughSteps();
             result = {
               username: mockData.username,
               totalTransactions: mockData.transactions,
@@ -101,6 +130,8 @@ export default function LoadingScreen() {
             };
           }
         } else {
+          // No address provided - emit progress through steps for demo/fallback mode
+          await emitProgressThroughSteps();
           result = {
             username: mockData.username,
             totalTransactions: mockData.transactions,
@@ -122,12 +153,12 @@ export default function LoadingScreen() {
         setResult(result);
         setStatus("ready");
 
-        // small delay for animation before continuing
+        // Give progress display time to be visible (minimum 1.5 seconds)
         setTimeout(() => {
           if (isMounted) {
             handleComplete();
           }
-        }, 800);
+        }, 1500);
       } catch (error: unknown) {
         if (!isMounted) return;
         setStatus("error");
@@ -178,9 +209,19 @@ export default function LoadingScreen() {
     <div className="relative w-full min-h-screen h-screen overflow-hidden flex items-center justify-center bg-theme-background">
       <ProgressIndicator currentStep={3} totalSteps={6} showNext={false} />
 
-      {/* Step Progress Display - Shows granular indexing progress */}
-      <div className="relative z-20 pointer-events-auto">
-        <StepProgressDisplay onCancel={handleCancel} onRetry={handleRetry} />
+      {/* Container for centered layout with progress left and content right */}
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 w-full max-w-6xl px-4 pointer-events-auto">
+        <div className="flex items-center justify-between gap-8">
+          {/* Step Progress Display - Left side */}
+          <div className="w-80 md:w-96 pointer-events-auto">
+            <StepProgressDisplay
+              onCancel={handleCancel}
+              onRetry={handleRetry}
+            />
+          </div>
+
+          {/* Content area - Right side will be filled by the main content below */}
+        </div>
       </div>
 
       <div className="absolute inset-0 from-black via-black to-black opacity-60" />
@@ -328,94 +369,103 @@ export default function LoadingScreen() {
         }}
       />
 
-      <div className="relative z-10 text-center px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, type: "spring", stiffness: 100 }}
-        >
-          <motion.h1
-            className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-white mb-4 md:mb-6 tracking-tighter leading-none"
-            animate={{
-              textShadow: [
-                `0 0 20px rgba(var(--color-theme-primary-rgb), 0.5)`,
-                `0 0 40px rgba(var(--color-theme-primary-rgb), 0.8)`,
-                `0 0 20px rgba(var(--color-theme-primary-rgb), 0.5)`,
-              ],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-            }}
-          >
-            WRAPPING
-          </motion.h1>
-          <motion.h2
-            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white/80 mb-6 md:mb-10 tracking-tight leading-none"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-          >
-            YOUR JOURNEY
-          </motion.h2>
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 px-4 w-full max-w-6xl">
+        <div className="flex items-center justify-between gap-8">
+          {/* Left side: reserved for progress (empty here, filled by overlay) */}
+          <div className="w-80 md:w-96" />
 
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.9 }}
-            className="inline-block"
-          >
-            <div className="relative">
-              <motion.div
-                className="absolute inset-0 blur-lg md:blur-xl rounded-xl md:rounded-2xl"
-                style={{
-                  backgroundColor: "rgba(var(--color-theme-primary-rgb), 0.4)",
-                }}
+          {/* Right side: WRAPPING YOUR JOURNEY content */}
+          <div className="flex-1">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, type: "spring", stiffness: 100 }}
+            >
+              <motion.h1
+                className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-white mb-4 md:mb-6 tracking-tighter leading-none"
                 animate={{
-                  opacity: [0.5, 0.8, 0.5],
+                  textShadow: [
+                    `0 0 20px rgba(var(--color-theme-primary-rgb), 0.5)`,
+                    `0 0 40px rgba(var(--color-theme-primary-rgb), 0.8)`,
+                    `0 0 20px rgba(var(--color-theme-primary-rgb), 0.5)`,
+                  ],
                 }}
                 transition={{
                   duration: 2,
                   repeat: Infinity,
                 }}
-              />
-              <div
-                className="relative backdrop-blur-sm px-6 py-3 sm:px-8 sm:py-4 md:px-12 md:py-6 rounded-xl md:rounded-2xl"
-                style={{
-                  backgroundColor: "rgba(0, 0, 0, 0.5)",
-                  borderColor: "rgba(var(--color-theme-primary-rgb), 0.5)",
-                  borderWidth: "1px",
-                }}
               >
-                <h3
-                  className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black"
-                  style={{
-                    background: `linear-gradient(to right, #ffffff, var(--color-theme-primary))`,
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                  }}
-                >
-                  STELLAR
-                </h3>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
+                WRAPPING
+              </motion.h1>
+              <motion.h2
+                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white/80 mb-6 md:mb-10 tracking-tight leading-none"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+              >
+                YOUR JOURNEY
+              </motion.h2>
 
-        <motion.div
-          className="mt-12 md:mt-16 w-48 sm:w-56 md:w-64 h-1 bg-white/10 rounded-full mx-auto overflow-hidden"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2 }}
-        >
-          <motion.div
-            className="h-full"
-            style={{ backgroundColor: "var(--color-theme-primary)" }}
-            initial={{ width: "0%" }}
-            animate={{ width: "100%" }}
-            transition={{ duration: 2.5, ease: "easeInOut" }}
-          />
-        </motion.div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.9 }}
+                className="inline-block"
+              >
+                <div className="relative">
+                  <motion.div
+                    className="absolute inset-0 blur-lg md:blur-xl rounded-xl md:rounded-2xl"
+                    style={{
+                      backgroundColor:
+                        "rgba(var(--color-theme-primary-rgb), 0.4)",
+                    }}
+                    animate={{
+                      opacity: [0.5, 0.8, 0.5],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                    }}
+                  />
+                  <div
+                    className="relative backdrop-blur-sm px-6 py-3 sm:px-8 sm:py-4 md:px-12 md:py-6 rounded-xl md:rounded-2xl"
+                    style={{
+                      backgroundColor: "rgba(0, 0, 0, 0.5)",
+                      borderColor: "rgba(var(--color-theme-primary-rgb), 0.5)",
+                      borderWidth: "1px",
+                    }}
+                  >
+                    <h3
+                      className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black"
+                      style={{
+                        background: `linear-gradient(to right, #ffffff, var(--color-theme-primary))`,
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                      }}
+                    >
+                      STELLAR
+                    </h3>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+
+            <motion.div
+              className="mt-12 md:mt-16 w-48 sm:w-56 md:w-64 h-1 bg-white/10 rounded-full mx-auto overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.2 }}
+            >
+              <motion.div
+                className="h-full"
+                style={{ backgroundColor: "var(--color-theme-primary)" }}
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 2.5, ease: "easeInOut" }}
+              />
+            </motion.div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -10,16 +10,15 @@
  * @module contractArgsBuilder
  */
 
-import { xdr } from 'stellar-sdk';
+import { xdr } from "stellar-sdk";
 import {
-    toScVal,
-    addressToScVal,
-    objectToScValMap,
-    isConversionError,
-    type ConversionResult,
-    type IndexedStats,
-    type ScValTargetType,
-} from './sorobanConverter';
+  toScVal,
+  addressToScVal,
+  objectToScValMap,
+  isConversionError,
+  type ConversionResult,
+  type ScValTargetType,
+} from "./sorobanConverter";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -27,28 +26,28 @@ import {
  * Validated contract arguments ready for invocation.
  */
 export interface ContractArgs {
-    args: xdr.ScVal[];
-    /** Human-readable description of each argument for debugging */
-    argDescriptions: string[];
+  args: xdr.ScVal[];
+  /** Human-readable description of each argument for debugging */
+  argDescriptions: string[];
 }
 
 /**
  * Result of building contract arguments.
  */
 export type BuildArgsResult =
-    | { success: true; data: ContractArgs }
-    | { success: false; errors: string[] };
+  | { success: true; data: ContractArgs }
+  | { success: false; errors: string[] };
 
 /**
  * Extended stats with optional timeframe for contract submission.
  */
 export interface ContractStatsInput {
-    totalVolume: number;
-    mostActiveAsset: string;
-    contractCalls: number;
-    timeframe?: string;
-    /** Additional key-value pairs to include */
-    [key: string]: unknown;
+  totalVolume: number;
+  mostActiveAsset: string;
+  contractCalls: number;
+  timeframe?: string;
+  /** Additional key-value pairs to include */
+  [key: string]: unknown;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -58,15 +57,15 @@ export interface ContractStatsInput {
  * and returning the ScVal on success (or null on failure).
  */
 function unwrap(
-    result: ConversionResult,
-    label: string,
-    errors: string[],
+  result: ConversionResult,
+  label: string,
+  errors: string[],
 ): xdr.ScVal | null {
-    if (isConversionError(result)) {
-        errors.push(`${label}: ${result.error}`);
-        return null;
-    }
-    return result.value;
+  if (isConversionError(result)) {
+    errors.push(`${label}: ${result.error}`);
+    return null;
+  }
+  return result.value;
 }
 
 // ─── Validation ─────────────────────────────────────────────────────────────
@@ -76,43 +75,53 @@ function unwrap(
  * Returns an array of error messages (empty if valid).
  */
 export function validateIndexedStats(stats: ContractStatsInput): string[] {
-    const errors: string[] = [];
+  const errors: string[] = [];
 
-    if (stats === null || stats === undefined || typeof stats !== 'object') {
-        return ['Stats must be a non-null object'];
-    }
+  if (stats === null || stats === undefined || typeof stats !== "object") {
+    return ["Stats must be a non-null object"];
+  }
 
-    // totalVolume validation
-    if (typeof stats.totalVolume !== 'number') {
-        errors.push(`totalVolume must be a number, got ${typeof stats.totalVolume}`);
-    } else if (stats.totalVolume < 0) {
-        errors.push(`totalVolume must be non-negative, got ${stats.totalVolume}`);
-    } else if (!Number.isFinite(stats.totalVolume)) {
-        errors.push('totalVolume must be a finite number');
-    }
+  // totalVolume validation
+  if (typeof stats.totalVolume !== "number") {
+    errors.push(
+      `totalVolume must be a number, got ${typeof stats.totalVolume}`,
+    );
+  } else if (stats.totalVolume < 0) {
+    errors.push(`totalVolume must be non-negative, got ${stats.totalVolume}`);
+  } else if (!Number.isFinite(stats.totalVolume)) {
+    errors.push("totalVolume must be a finite number");
+  }
 
-    // mostActiveAsset validation
-    if (typeof stats.mostActiveAsset !== 'string') {
-        errors.push(`mostActiveAsset must be a string, got ${typeof stats.mostActiveAsset}`);
-    } else if (stats.mostActiveAsset.trim().length === 0) {
-        errors.push('mostActiveAsset must not be empty');
-    }
+  // mostActiveAsset validation
+  if (typeof stats.mostActiveAsset !== "string") {
+    errors.push(
+      `mostActiveAsset must be a string, got ${typeof stats.mostActiveAsset}`,
+    );
+  } else if (stats.mostActiveAsset.trim().length === 0) {
+    errors.push("mostActiveAsset must not be empty");
+  }
 
-    // contractCalls validation
-    if (typeof stats.contractCalls !== 'number') {
-        errors.push(`contractCalls must be a number, got ${typeof stats.contractCalls}`);
-    } else if (!Number.isInteger(stats.contractCalls)) {
-        errors.push(`contractCalls must be an integer, got ${stats.contractCalls}`);
-    } else if (stats.contractCalls < 0) {
-        errors.push(`contractCalls must be non-negative, got ${stats.contractCalls}`);
-    }
+  // contractCalls validation
+  if (typeof stats.contractCalls !== "number") {
+    errors.push(
+      `contractCalls must be a number, got ${typeof stats.contractCalls}`,
+    );
+  } else if (!Number.isInteger(stats.contractCalls)) {
+    errors.push(`contractCalls must be an integer, got ${stats.contractCalls}`);
+  } else if (stats.contractCalls < 0) {
+    errors.push(
+      `contractCalls must be non-negative, got ${stats.contractCalls}`,
+    );
+  }
 
-    // timeframe validation (optional)
-    if (stats.timeframe !== undefined && typeof stats.timeframe !== 'string') {
-        errors.push(`timeframe must be a string if provided, got ${typeof stats.timeframe}`);
-    }
+  // timeframe validation (optional)
+  if (stats.timeframe !== undefined && typeof stats.timeframe !== "string") {
+    errors.push(
+      `timeframe must be a string if provided, got ${typeof stats.timeframe}`,
+    );
+  }
 
-    return errors;
+  return errors;
 }
 
 // ─── Argument Builders ──────────────────────────────────────────────────────
@@ -148,63 +157,85 @@ export function validateIndexedStats(stats: ContractStatsInput): string[] {
  * ```
  */
 export function buildContractArgs(
-    stats: ContractStatsInput,
-    accountAddress: string,
+  stats: ContractStatsInput,
+  accountAddress: string,
 ): BuildArgsResult {
-    // 1. Validate input
-    const validationErrors = validateIndexedStats(stats);
-    if (validationErrors.length > 0) {
-        return { success: false, errors: validationErrors };
-    }
+  // 1. Validate input
+  const validationErrors = validateIndexedStats(stats);
+  if (validationErrors.length > 0) {
+    return { success: false, errors: validationErrors };
+  }
 
-    const errors: string[] = [];
-    const args: xdr.ScVal[] = [];
-    const argDescriptions: string[] = [];
+  const errors: string[] = [];
+  const args: xdr.ScVal[] = [];
+  const argDescriptions: string[] = [];
 
-    // 2. Convert account address → ScVal.scvAddress
-    const addrVal = unwrap(addressToScVal(accountAddress), 'accountAddress', errors);
-    if (addrVal) {
-        args.push(addrVal);
-        argDescriptions.push(`accountAddress: ${accountAddress}`);
-    }
+  // 2. Convert account address → ScVal.scvAddress
+  const addrVal = unwrap(
+    addressToScVal(accountAddress),
+    "accountAddress",
+    errors,
+  );
+  if (addrVal) {
+    args.push(addrVal);
+    argDescriptions.push(`accountAddress: ${accountAddress}`);
+  }
 
-    // 3. Convert totalVolume → ScVal.scvU64
-    const volumeVal = unwrap(toScVal(stats.totalVolume, 'u64'), 'totalVolume', errors);
-    if (volumeVal) {
-        args.push(volumeVal);
-        argDescriptions.push(`totalVolume: ${stats.totalVolume} (u64)`);
-    }
+  // 3. Convert totalVolume → ScVal.scvU64
+  const volumeVal = unwrap(
+    toScVal(stats.totalVolume, "u64"),
+    "totalVolume",
+    errors,
+  );
+  if (volumeVal) {
+    args.push(volumeVal);
+    argDescriptions.push(`totalVolume: ${stats.totalVolume} (u64)`);
+  }
 
-    // 4. Convert mostActiveAsset → ScVal.scvString
-    const assetVal = unwrap(toScVal(stats.mostActiveAsset, 'string'), 'mostActiveAsset', errors);
-    if (assetVal) {
-        args.push(assetVal);
-        argDescriptions.push(`mostActiveAsset: "${stats.mostActiveAsset}" (string)`);
-    }
+  // 4. Convert mostActiveAsset → ScVal.scvString
+  const assetVal = unwrap(
+    toScVal(stats.mostActiveAsset, "string"),
+    "mostActiveAsset",
+    errors,
+  );
+  if (assetVal) {
+    args.push(assetVal);
+    argDescriptions.push(
+      `mostActiveAsset: "${stats.mostActiveAsset}" (string)`,
+    );
+  }
 
-    // 5. Convert contractCalls → ScVal.scvU32
-    const callsVal = unwrap(toScVal(stats.contractCalls, 'u32'), 'contractCalls', errors);
-    if (callsVal) {
-        args.push(callsVal);
-        argDescriptions.push(`contractCalls: ${stats.contractCalls} (u32)`);
-    }
+  // 5. Convert contractCalls → ScVal.scvU32
+  const callsVal = unwrap(
+    toScVal(stats.contractCalls, "u32"),
+    "contractCalls",
+    errors,
+  );
+  if (callsVal) {
+    args.push(callsVal);
+    argDescriptions.push(`contractCalls: ${stats.contractCalls} (u32)`);
+  }
 
-    // 6. Convert timeframe → ScVal.scvString  (optional, default "all")
-    const timeframe = stats.timeframe ?? 'all';
-    const timeframeVal = unwrap(toScVal(timeframe, 'string'), 'timeframe', errors);
-    if (timeframeVal) {
-        args.push(timeframeVal);
-        argDescriptions.push(`timeframe: "${timeframe}" (string)`);
-    }
+  // 6. Convert timeframe → ScVal.scvString  (optional, default "all")
+  const timeframe = stats.timeframe ?? "all";
+  const timeframeVal = unwrap(
+    toScVal(timeframe, "string"),
+    "timeframe",
+    errors,
+  );
+  if (timeframeVal) {
+    args.push(timeframeVal);
+    argDescriptions.push(`timeframe: "${timeframe}" (string)`);
+  }
 
-    if (errors.length > 0) {
-        return { success: false, errors };
-    }
+  if (errors.length > 0) {
+    return { success: false, errors };
+  }
 
-    return {
-        success: true,
-        data: { args, argDescriptions },
-    };
+  return {
+    success: true,
+    data: { args, argDescriptions },
+  };
 }
 
 /**
@@ -223,57 +254,67 @@ export function buildContractArgs(
  * @returns BuildArgsResult with the arguments or errors
  */
 export function buildContractArgsAsMap(
-    stats: ContractStatsInput,
-    accountAddress: string,
+  stats: ContractStatsInput,
+  accountAddress: string,
 ): BuildArgsResult {
-    // Validate
-    const validationErrors = validateIndexedStats(stats);
-    if (validationErrors.length > 0) {
-        return { success: false, errors: validationErrors };
-    }
+  // Validate
+  const validationErrors = validateIndexedStats(stats);
+  if (validationErrors.length > 0) {
+    return { success: false, errors: validationErrors };
+  }
 
-    const errors: string[] = [];
-    const args: xdr.ScVal[] = [];
-    const argDescriptions: string[] = [];
+  const errors: string[] = [];
+  const args: xdr.ScVal[] = [];
+  const argDescriptions: string[] = [];
 
-    // 1. Account address
-    const addrVal = unwrap(addressToScVal(accountAddress), 'accountAddress', errors);
-    if (addrVal) {
-        args.push(addrVal);
-        argDescriptions.push(`accountAddress: ${accountAddress}`);
-    }
+  // 1. Account address
+  const addrVal = unwrap(
+    addressToScVal(accountAddress),
+    "accountAddress",
+    errors,
+  );
+  if (addrVal) {
+    args.push(addrVal);
+    argDescriptions.push(`accountAddress: ${accountAddress}`);
+  }
 
-    // 2. Stats as a map
-    const statsForMap: Record<string, unknown> = {
-        total_volume: stats.totalVolume,
-        most_active_asset: stats.mostActiveAsset,
-        contract_calls: stats.contractCalls,
-    };
-    if (stats.timeframe) {
-        statsForMap.timeframe = stats.timeframe;
-    }
+  // 2. Stats as a map
+  const statsForMap: Record<string, unknown> = {
+    total_volume: stats.totalVolume,
+    most_active_asset: stats.mostActiveAsset,
+    contract_calls: stats.contractCalls,
+  };
+  if (stats.timeframe) {
+    statsForMap.timeframe = stats.timeframe;
+  }
 
-    const typeHints: Record<string, ScValTargetType> = {
-        total_volume: 'u64',
-        most_active_asset: 'string',
-        contract_calls: 'u32',
-        timeframe: 'string',
-    };
+  const typeHints: Record<string, ScValTargetType> = {
+    total_volume: "u64",
+    most_active_asset: "string",
+    contract_calls: "u32",
+    timeframe: "string",
+  };
 
-    const mapVal = unwrap(objectToScValMap(statsForMap, typeHints), 'statsMap', errors);
-    if (mapVal) {
-        args.push(mapVal);
-        argDescriptions.push('statsMap: { total_volume, most_active_asset, contract_calls }');
-    }
+  const mapVal = unwrap(
+    objectToScValMap(statsForMap, typeHints),
+    "statsMap",
+    errors,
+  );
+  if (mapVal) {
+    args.push(mapVal);
+    argDescriptions.push(
+      "statsMap: { total_volume, most_active_asset, contract_calls }",
+    );
+  }
 
-    if (errors.length > 0) {
-        return { success: false, errors };
-    }
+  if (errors.length > 0) {
+    return { success: false, errors };
+  }
 
-    return {
-        success: true,
-        data: { args, argDescriptions },
-    };
+  return {
+    success: true,
+    data: { args, argDescriptions },
+  };
 }
 
 /**
@@ -282,20 +323,23 @@ export function buildContractArgsAsMap(
  * @param result - The build result to log
  * @param label  - Optional label for the log group
  */
-export function logContractArgs(result: BuildArgsResult, label = 'Contract Arguments'): void {
-    if (result.success === true) {
-        console.group(`✅ ${label}`);
-        result.data.argDescriptions.forEach((desc, i) => {
-            console.log(`  [${i}] ${desc}`);
-        });
-        console.log(`  Total arguments: ${result.data.args.length}`);
-        console.groupEnd();
-    }
-    if (result.success === false) {
-        console.group(`❌ ${label} - Build Failed`);
-        result.errors.forEach((err) => {
-            console.error(`  • ${err}`);
-        });
-        console.groupEnd();
-    }
+export function logContractArgs(
+  result: BuildArgsResult,
+  label = "Contract Arguments",
+): void {
+  if (result.success === true) {
+    console.group(`✅ ${label}`);
+    result.data.argDescriptions.forEach((desc, i) => {
+      console.log(`  [${i}] ${desc}`);
+    });
+    console.log(`  Total arguments: ${result.data.args.length}`);
+    console.groupEnd();
+  }
+  if (result.success === false) {
+    console.group(`❌ ${label} - Build Failed`);
+    result.errors.forEach((err) => {
+      console.error(`  • ${err}`);
+    });
+    console.groupEnd();
+  }
 }

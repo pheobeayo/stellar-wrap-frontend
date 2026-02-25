@@ -7,7 +7,7 @@ export type IndexingStep =
   | "fetching-transactions"
   | "filtering-timeframes"
   | "calculating-volume"
-  | "identifying-assets"
+  | "identifying-assets" 
   | "counting-contracts"
   | "finalizing";
 

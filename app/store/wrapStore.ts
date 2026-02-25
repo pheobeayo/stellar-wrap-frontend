@@ -108,8 +108,7 @@ export const useWrapStore = create<WrapStoreState>()(
       contractAddresses: {},
       setAddress: (address) => set({ address }),
       setPeriod: (period) => set({ period }),
-      setNetwork: (network) =>
-        set({ network, ...syncContractState(network) }),
+      setNetwork: (network) => set({ network, ...syncContractState(network) }),
       setStatus: (status) => set({ status }),
       setError: (error) => set({ error }),
       setResult: (result) => set({ result }),
@@ -136,10 +135,8 @@ export const useWrapStore = create<WrapStoreState>()(
               getItem: () => null,
               setItem: () => {},
               removeItem: () => {},
-            }
+            },
       ),
-    }
-  )
+    },
+  ),
 );
-
-}));
