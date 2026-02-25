@@ -4,7 +4,29 @@
  */
 
 import { getHorizonServer } from "@/app/utils/stellarClient";
-import { IndexerResult, PERIODS, WrapPeriod } from "@/app/utils/indexer";
+// Inline types for transaction and operation records
+type OperationRecord = {
+  type: string;
+  amount?: string;
+  asset_code?: string;
+  memo?: string;
+  [key: string]: unknown;
+};
+type TransactionRecord = {
+  created_at: string;
+  memo?: string;
+  operations: OperationRecord[];
+  paging_token?: string;
+  [key: string]: unknown;
+};
+import {
+  IndexerResult,
+  PERIODS,
+  WrapPeriod,
+  getCacheKey,
+  isCacheValid,
+} from "@/app/utils/indexer";
+import { getCacheEntry, setCacheEntry } from "@/app/utils/indexedDbCache";
 import { calculateAchievements } from "./achievementCalculator";
 import { IndexerEventEmitter } from "@/app/utils/indexerEventEmitter";
 import { INDEXING_STEPS, IndexingStep } from "@/app/types/indexing";
@@ -88,6 +110,12 @@ export async function indexAccount(
   network: "mainnet" | "testnet" = "mainnet",
   period: WrapPeriod = "monthly",
 ): Promise<IndexerResult> {
+  // IndexedDB cache check
+  const cacheKey = getCacheKey(accountId, network, period);
+  const cached = await getCacheEntry(cacheKey);
+  if (cached && isCacheValid(cached)) {
+    return cached.result;
+  }
   const emitter = IndexerEventEmitter.getInstance();
   const server = getHorizonServer(network);
   const days = PERIODS[period];
@@ -99,11 +127,13 @@ export async function indexAccount(
   try {
     // ── Step 1: Initializing ─────────────────────────────────────────────────
     currentEmittedStep = "initializing";
+    console.log("Emitting step change: initializing");
     emitter.emitStepChange("initializing");
     await animateStep("initializing", emitter, () => {
       // Lightweight validation that the server config is ready
       getHorizonServer(network);
     });
+    console.log("Step complete: initializing");
 
     // ── Step 2: Fetch transactions ───────────────────────────────────────────
     // This step has real async work so we drive progress from actual fetch
@@ -121,15 +151,47 @@ export async function indexAccount(
     let pageCount = 0;
 
     while (hasMore) {
-      const response = await concurrencyManager.run(async () => {
-        const builder = server.transactions().forAccount(accountId).limit(200);
-        if (cursor) {
-          builder.cursor(cursor);
+      let response: unknown;
+      try {
+        response = await concurrencyManager.run(async () => {
+          const builder = server
+            .transactions()
+            .forAccount(accountId)
+            .limit(200);
+          if (cursor) {
+            builder.cursor(cursor);
+          }
+          return builder.call();
+        });
+      } catch (error: unknown) {
+        const errorObj = error as {
+          response?: { status?: number };
+          code?: string;
+          name?: string;
+          message?: string;
+        };
+        if (errorObj?.response?.status === 404) {
+          throw new Error("Account not found (404). Please check the address.");
+        } else if (errorObj?.response?.status === 429) {
+          throw new Error("Rate limit exceeded (429). Please try again later.");
+        } else if (errorObj?.response?.status === 500) {
+          throw new Error("Server error (500). Please try again later.");
+        } else if (
+          errorObj?.code === "ECONNABORTED" ||
+          errorObj?.name === "TimeoutError"
+        ) {
+          throw new Error("Network timeout. Please check your connection.");
+        } else {
+          throw new Error(
+            "Unknown error fetching transactions: " +
+              (errorObj?.message || String(error)),
+          );
         }
-        return builder.call();
-      });
+      }
 
-      if (!response.records || response.records.length === 0) {
+      const respRecords = (response as { records: TransactionRecord[] })
+        .records;
+      if (!respRecords || respRecords.length === 0) {
         hasMore = false;
         break;
       }
@@ -143,26 +205,37 @@ export async function indexAccount(
         Math.min(95, Math.max(pageCount * 15, timeProgress)),
       );
 
-      const recordsInRange = response.records.filter((tx) => {
-        const txData = tx as unknown as Record<string, unknown>;
-        return new Date(txData.created_at as string) >= cutoffDate;
+      // Fetch operations for each transaction and attach as array
+      const recordsWithOps = await Promise.all(
+        respRecords.map(async (tx: TransactionRecord) => {
+          const txRecord = tx as {
+            operations: () => Promise<{ records: OperationRecord[] }>;
+          } & TransactionRecord;
+          const opsPage = await txRecord.operations();
+          return {
+            ...txRecord,
+            operations: opsPage.records as OperationRecord[],
+          };
+        }),
+      );
+      const recordsInRange = recordsWithOps.filter((tx: TransactionRecord) => {
+        return new Date(tx.created_at) >= cutoffDate;
       });
       allTransactions.push(...recordsInRange);
 
       if (
-        response.records.some((tx) => {
-          const txData = tx as unknown as Record<string, unknown>;
-          return new Date(txData.created_at as string) < cutoffDate;
+        recordsWithOps.some((tx: TransactionRecord) => {
+          return new Date(tx.created_at) < cutoffDate;
         })
       ) {
         hasMore = false;
         break;
       }
 
-      const pageResponse = response as unknown as Record<string, unknown>;
       cursor =
-        pageResponse.paging_token && response.records.length === 200
-          ? String(pageResponse.paging_token)
+        respRecords.length === 200 &&
+        respRecords[respRecords.length - 1].paging_token
+          ? String(respRecords[respRecords.length - 1].paging_token)
           : undefined;
       if (!cursor) hasMore = false;
     }
@@ -276,6 +349,8 @@ export async function indexAccount(
     });
 
     emitter.emitIndexingComplete(result);
+    // Store result in IndexedDB cache
+    await setCacheEntry(cacheKey, { result, timestamp: Date.now() });
     return result;
   } catch (error) {
     const errorMessage =

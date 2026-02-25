@@ -1,19 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect, KeyboardEvent } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Wallet, Copy, CheckCircle, XCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useWrapStore } from '../store/wrapStore';
-import { connectFreighter } from '../utils/walletConnect';
-import { ProgressIndicator } from '../components/ProgressIndicator';
-import { MuteToggle } from '../components/MuteToggle';
-import { useStellarAddressValidation } from '../../src/hooks/useStellarAddressValidation';
-import { indexerService } from '../../src/services/indexerService';
-import { useSound } from '../hooks/useSound';
-import { SOUND_NAMES } from '../utils/soundManager';
-
-
+import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Wallet, Copy, CheckCircle, XCircle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useWrapStore } from "../store/wrapStore";
+import { connectFreighter } from "../utils/walletConnect";
+import { ProgressIndicator } from "../components/ProgressIndicator";
+import { MuteToggle } from "../components/MuteToggle";
+import { useStellarAddressValidation } from "../../src/hooks/useStellarAddressValidation";
+import { useSound } from "../hooks/useSound";
+import { SOUND_NAMES } from "../utils/soundManager";
 
 export default function ConnectPage() {
   const router = useRouter();
@@ -24,15 +21,12 @@ export default function ConnectPage() {
     address: walletAddress,
     validationState,
     errorMessage,
-    setValidationState,
     handleAddressChange: handleRawAddressChange,
-    isValid
+    isValid,
   } = useStellarAddressValidation({ network });
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-
-
 
   // Refs for focus management
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -49,38 +43,6 @@ export default function ConnectPage() {
       mainContentRef.current.focus();
     }
   }, []);
-
-
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const triggerIndexing = async () => {
-      if (validationState === 'valid' && walletAddress) {
-        setValidationState('indexing');
-        try {
-          await indexerService.fetchAccountTransactions(walletAddress);
-          if (isMounted) {
-            setValidationState('valid');
-            // Auto-trigger the "Start Wrapping" flow after indexing if desired, 
-            // or just let user click the button. We'll just let them click for now.
-          }
-        } catch {
-          if (isMounted) {
-            setValidationState('error');
-            setLocalError("Failed to index account transactions");
-          }
-        }
-      }
-    };
-
-    if (validationState === 'valid') {
-      triggerIndexing();
-    }
-
-    return () => { isMounted = false; };
-  }, [validationState, walletAddress, setValidationState]);
-
 
   const handleFreighterConnect = async () => {
     setIsConnecting(true);
@@ -166,42 +128,46 @@ export default function ConnectPage() {
 
   // Keyboard event handlers
   const handleBackKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
+    if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       onBack();
     }
   };
 
   const handleConnectKeyDown = (e: KeyboardEvent) => {
-    if ((e.key === 'Enter' || e.key === ' ') && !isConnecting && walletAddress.trim()) {
+    if (
+      (e.key === "Enter" || e.key === " ") &&
+      !isConnecting &&
+      walletAddress.trim()
+    ) {
       e.preventDefault();
       handleConnect();
     }
   };
 
   const handleFreighterKeyDown = (e: KeyboardEvent) => {
-    if ((e.key === 'Enter' || e.key === ' ') && !isConnecting) {
+    if ((e.key === "Enter" || e.key === " ") && !isConnecting) {
       e.preventDefault();
       handleFreighterConnect();
     }
   };
 
   const handleDemoKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
+    if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       handleDemoMode();
     }
   };
 
   const handlePasteKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
+    if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       handlePaste();
     }
   };
 
   const handleAddressKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' && walletAddress.trim()) {
+    if (e.key === "Enter" && walletAddress.trim()) {
       e.preventDefault();
       handleManualSubmit();
     }
@@ -210,20 +176,22 @@ export default function ConnectPage() {
   // Keyboard navigation for the entire page
   const handlePageKeyDown = (e: KeyboardEvent) => {
     // Handle Escape key to go back
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       e.preventDefault();
       onBack();
     }
 
     // Handle Tab key for focus trapping
-    if (e.key === 'Tab' && mainContentRef.current) {
+    if (e.key === "Tab" && mainContentRef.current) {
       const focusableElements = mainContentRef.current.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
       );
 
       if (focusableElements.length > 0) {
         const firstElement = focusableElements[0] as HTMLElement;
-        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+        const lastElement = focusableElements[
+          focusableElements.length - 1
+        ] as HTMLElement;
 
         if (e.shiftKey && document.activeElement === firstElement) {
           e.preventDefault();
@@ -236,7 +204,7 @@ export default function ConnectPage() {
     }
   };
 
-  const errorId = localError ? 'address-error' : undefined;
+  const errorId = localError ? "address-error" : undefined;
 
   return (
     <div
@@ -313,7 +281,7 @@ export default function ConnectPage() {
           </span>
         </div>
       </motion.button>
-      
+
       <motion.div
         className="absolute top-6 right-6 md:top-8 md:right-8 z-20"
         initial={{ opacity: 0, x: 20 }}
@@ -430,9 +398,11 @@ export default function ConnectPage() {
                 placeholder="Paste your Stellar address here"
                 className="w-full px-5 py-4 rounded-xl font-mono text-sm sm:text-base border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black"
                 style={{
-                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                  borderColor: localError ? 'rgba(239, 68, 68, 0.5)' : 'rgba(255, 255, 255, 0.1)',
-                  color: 'white',
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  borderColor: localError
+                    ? "rgba(239, 68, 68, 0.5)"
+                    : "rgba(255, 255, 255, 0.1)",
+                  color: "white",
                 }}
                 tabIndex={0}
                 aria-label="Stellar wallet address input"
@@ -459,7 +429,8 @@ export default function ConnectPage() {
                 />
               </motion.button>
               <AnimatePresence mode="popLayout">
-                {validationState === 'validating' || validationState === 'indexing' ? (
+                {validationState === "validating" ||
+                validationState === "indexing" ? (
                   <motion.div
                     key="loading"
                     initial={{ opacity: 0, scale: 0.8 }}
@@ -469,7 +440,7 @@ export default function ConnectPage() {
                   >
                     <div className="w-5 h-5 border-2 border-theme-primary border-t-transparent rounded-full animate-spin" />
                   </motion.div>
-                ) : validationState === 'valid' ? (
+                ) : validationState === "valid" ? (
                   <motion.div
                     key="valid"
                     initial={{ opacity: 0, scale: 0.8 }}
@@ -479,7 +450,9 @@ export default function ConnectPage() {
                   >
                     <CheckCircle className="w-5 h-5 text-green-500" />
                   </motion.div>
-                ) : (validationState === 'invalid' || validationState === 'not-found' || validationState === 'error') ? (
+                ) : validationState === "invalid" ||
+                  validationState === "not-found" ||
+                  validationState === "error" ? (
                   <motion.div
                     key="invalid"
                     initial={{ opacity: 0, scale: 0.8 }}
@@ -495,7 +468,7 @@ export default function ConnectPage() {
 
             {/* Validation State Feedback Messages */}
             <AnimatePresence mode="popLayout">
-              {validationState === 'validating' && (
+              {validationState === "validating" && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -508,7 +481,7 @@ export default function ConnectPage() {
                   </div>
                 </motion.div>
               )}
-              {validationState === 'indexing' && (
+              {validationState === "indexing" && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -553,10 +526,16 @@ export default function ConnectPage() {
               onKeyDown={handleConnectKeyDown}
               disabled={!walletAddress.trim() || isConnecting}
               className="w-full relative group disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
-              whileHover={{ scale: !walletAddress.trim() || isConnecting ? 1 : 1.02 }}
-              whileTap={{ scale: !walletAddress.trim() || isConnecting ? 1 : 0.98 }}
+              whileHover={{
+                scale: !walletAddress.trim() || isConnecting ? 1 : 1.02,
+              }}
+              whileTap={{
+                scale: !walletAddress.trim() || isConnecting ? 1 : 0.98,
+              }}
               tabIndex={0}
-              aria-label={isConnecting ? "Connecting wallet" : "Start wrapping process"}
+              aria-label={
+                isConnecting ? "Connecting wallet" : "Start wrapping process"
+              }
               aria-disabled={!walletAddress.trim() || isConnecting}
               role="button"
             >
@@ -644,7 +623,7 @@ export default function ConnectPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-bold hover:text-white/80 transition-colors focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black focus:rounded"
-                  style={{ color: 'var(--color-theme-primary)' }}
+                  style={{ color: "var(--color-theme-primary)" }}
                   tabIndex={0}
                   aria-label="Learn how to get a Stellar wallet (opens in new window)"
                 >
