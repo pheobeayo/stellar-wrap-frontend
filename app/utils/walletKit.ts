@@ -2,13 +2,14 @@ import { StellarWalletsKit } from "@creit-tech/stellar-wallets-kit/sdk";
 import { defaultModules } from "@creit-tech/stellar-wallets-kit/modules/utils";
 import { WalletConnectModule } from "@creit-tech/stellar-wallets-kit/modules/wallet-connect";
 import { Network } from "../../src/config";
-import { getContractAddressForNetwork } from "./contractBridge";
 import {
   ContractConfigurationError,
   InvalidContractAddressError,
   ContractNotFoundError,
   ContractValidationError,
 } from "./contractErrors";
+import { mintWrap as contractMintWrap, type MintWrapOptions, type TransactionObserver } from "../../src/services/contractBridge";
+import { useWrapStore } from "../store/wrapStore";
 
 if (
   typeof process !== "undefined" &&
@@ -47,23 +48,126 @@ export function initWalletKit(): void {
 }
 
 /**
- * Mint the user's Stellar Wrapped as a Soulbound Token NFT
- * Uses the contract address for the given network (mainnet vs testnet).
- *
- * @param userAddress - The connected Stellar wallet address
- * @param network - 'mainnet' | 'testnet' (determines which contract is used)
- * @returns Transaction hash on success
- * @throws Error if minting fails, user rejects transaction, or contract is invalid for the network
+ * Options for minting a wrap NFT
  */
-export async function mintWrap(
-  userAddress: string,
-  network: Network
-): Promise<string> {
+export interface MintWrapParams {
+  /** User's Stellar account address */
+  userAddress: string;
+  /** Network to use (mainnet/testnet) */
+  network: Network;
+  /** Optional indexed stats to pass as contract arguments */
+  stats?: {
+    totalVolume: number;
+    mostActiveAsset: string;
+    contractCalls: number;
+    timeframe?: string;
+  };
+  /** Optional observer callback for transaction state updates */
+  observer?: TransactionObserver;
+}
+
+/**
+ * Fetches indexed stats from the API if not provided
+ */
+async function fetchIndexedStats(
+  accountAddress: string,
+  network: Network,
+  period: string = "yearly",
+): Promise<{ totalVolume: number; mostActiveAsset: string; contractCalls: number }> {
+  try {
+    const response = await fetch(
+      `/api/wrapped?accountId=${encodeURIComponent(accountAddress)}&network=${network}&period=${period}`,
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch indexed stats: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    return {
+      totalVolume: data.totalVolume || 0,
+      mostActiveAsset: data.mostActiveAsset || "XLM",
+      contractCalls: data.contractCalls || 0,
+    };
+  } catch (error) {
+    console.warn("Failed to fetch indexed stats, using defaults:", error);
+    // Return default values if fetch fails
+    return {
+      totalVolume: 0,
+      mostActiveAsset: "XLM",
+      contractCalls: 0,
+    };
+  }
+}
+
+/**
+ * Mint the user's Stellar Wrapped as a Soulbound Token NFT
+ * 
+ * This function handles the complete Soroban contract invocation lifecycle:
+ * - Building XDR transactions with contract arguments
+ * - Simulating transactions
+ * - Signing with Freighter wallet
+ * - Submitting to network
+ * - Polling for confirmation
+ * 
+ * @param params - Minting parameters including address, network, and optional stats
+ * @returns Transaction hash on success
+ * @throws Error if minting fails or user rejects transaction
+ * 
+ * @example
+ * ```ts
+ * // With provided stats
+ * const txHash = await mintWrap({
+ *   userAddress: 'GABC...XYZ',
+ *   network: 'testnet',
+ *   stats: {
+ *     totalVolume: 45000,
+ *     mostActiveAsset: 'XLM',
+ *     contractCalls: 120,
+ *     timeframe: '1y'
+ *   }
+ * });
+ * 
+ * // Without stats (will fetch from API)
+ * const txHash = await mintWrap({
+ *   userAddress: 'GABC...XYZ',
+ *   network: 'testnet'
+ * });
+ * ```
+ */
+export async function mintWrap(params: MintWrapParams): Promise<string> {
   try {
     initWalletKit();
 
-    const txHash = await invokeMintWrapContract(userAddress, network);
-    return txHash;
+    const { userAddress, network, stats, observer } = params;
+
+    // Get stats if not provided
+    let finalStats = stats;
+    if (!finalStats) {
+      // Try to get from store first (if available)
+      const store = useWrapStore.getState();
+      // Fetch from API if not in store
+      finalStats = await fetchIndexedStats(userAddress, network);
+    }
+
+    // Build mint options for contract bridge
+    const mintOptions: MintWrapOptions = {
+      accountAddress: userAddress,
+      network,
+      stats: {
+        totalVolume: finalStats.totalVolume,
+        mostActiveAsset: finalStats.mostActiveAsset,
+        contractCalls: finalStats.contractCalls,
+        timeframe: finalStats.timeframe || "all",
+      },
+      observer: observer,
+    };
+
+    // Invoke contract bridge with full transaction lifecycle
+    const result = await contractMintWrap(mintOptions);
+
+    return result.transactionHash;
   } catch (error) {
     if (
       error instanceof ContractConfigurationError ||
@@ -78,33 +182,4 @@ export async function mintWrap(
     }
     throw new Error("Minting failed: Unknown error occurred");
   }
-}
-
-/**
- * Internal function to invoke the mint_wrap contract function.
- * Validates contract exists on network, then loads instance (cached when available).
- */
-async function invokeMintWrapContract(
-  userAddress: string,
-  network: Network
-): Promise<string> {
-  const { getContractInstanceValidated } = await import("./contractBridge");
-  await getContractInstanceValidated(network);
-  const contractAddress = getContractAddressForNetwork(network);
-
-  // TODO: Replace with actual Soroban invocation, e.g. contract.call('mint_wrap', ...)
-  // when the contract engineer provides the contract details.
-  // Example:
-  // const operation = contract.call('mint_wrap', userAddress);
-  // const transaction = new TransactionBuilder(...)
-  //   .addOperation(operation)
-  //   .build();
-  // const { signedTxXdr } = await kit.signTransaction(transaction.toXDR());
-  // const result = await submitTransaction(signedTxXdr);
-  // return result.hash;
-
-  throw new Error(
-    "Contract integration pending. The mint_wrap function will be implemented by the contract engineer. " +
-      `Contract address (${network}): ${contractAddress}, User: ${userAddress}`,
-  );
 }

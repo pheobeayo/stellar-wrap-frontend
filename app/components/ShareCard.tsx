@@ -28,6 +28,7 @@ export function ShareCard({
   const [isDownloading, setIsDownloading] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
   const [mintSuccess, setMintSuccess] = useState<string | null>(null);
+  const [mintState, setMintState] = useState<string>("");
   const { address, network } = useWrapStore();
   const { playSound } = useSound();
 
@@ -66,9 +67,20 @@ export function ShareCard({
 
     setIsMinting(true);
     setMintSuccess(null);
+    setMintState("");
+
+    // Transaction state observer
+    const observer = (state: string, data?: unknown) => {
+      setMintState(state);
+      console.log("Transaction state:", state, data);
+    };
 
     try {
-      const txHash = await mintWrap(address, network);
+      const txHash = await mintWrap({
+        userAddress: address,
+        network: network || "testnet",
+        observer,
+      });
       setMintSuccess(txHash);
       playSound(SOUND_NAMES.MINT_SUCCESS);
       const explorerNetwork = network === "mainnet" ? "public" : "testnet";
@@ -91,6 +103,7 @@ export function ShareCard({
       });
     } finally {
       setIsMinting(false);
+      setMintState("");
     }
   };
   return (
@@ -302,7 +315,15 @@ export function ShareCard({
               )}
               <span className="text-2xl font-black tracking-tight">
                 {isMinting
-                  ? "Minting..."
+                  ? mintState === "simulating"
+                    ? "Simulating..."
+                    : mintState === "signed"
+                      ? "Signing..."
+                      : mintState === "submitted"
+                        ? "Submitting..."
+                        : mintState === "confirmed"
+                          ? "Confirmed!"
+                          : "Minting..."
                   : mintSuccess
                     ? "Minted!"
                     : "Mint My Wrap"}
